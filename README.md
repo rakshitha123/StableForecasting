@@ -6,7 +6,7 @@ We explore two types of forecast stability, vertical stability and horizontal st
 by any base model either vertically or horizontally up to any extent by simply changing a parameter (w_s) used during the interpolation. Furthermore, the framework can produce both accurate and stable forecasts for certain types of datasets. For more details of our proposed framework, please refer to our paper.
 
 
-# Instructions for execution
+# Instructions for Execution
 
 ## Executing the Base Models
 For the experiments, three base models are used: N-BEATS, Pooled Regression (PR) and LightGBM. All three base models are executed as global forecasting models where a single forecasting model is built across all series in a dataset. 
