@@ -39,8 +39,8 @@ When using this repository, please cite:
 
 ```{r} 
 @article{godahewa2023stable,
-  title = {A Model-Agnostic Framework to Stabilise Forecasts},
-  author = {Godahewa, Rakshitha and Song, Zhangdi and Bergmeir, Christoph},
+  title = {On Forecast Stability},
+  author = {Godahewa, Rakshitha and Bergmeir, Christoph and Song, Zhangdi},
   year = {2023}
 }
 ```
