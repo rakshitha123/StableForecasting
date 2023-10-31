@@ -3,7 +3,7 @@
 This repository contains the experiments related to a simple linear interpolation based framework that can be used to stabilise the forecasts obtained from any base model. 
 
 We explore two types of forecast stability, vertical stability and horizontal stability. Our framework is applicable to stabilise the forecasts provided
-by any base model either vertically or horizontally up to any extent by simply changing a parameter (w_s) used during the interpolation. Furthermore, the framework can produce both accurate and stable forecasts for certain types of datasets. For more details of our proposed framework, please refer to our paper.
+by any base model either vertically or horizontally up to any extent by simply changing a parameter (w_s) used during the interpolation. Furthermore, the framework can produce both accurate and stable forecasts for certain types of datasets. For more details of our proposed framework, please refer to our [paper](https://arxiv.org/pdf/2310.17332.pdf).
 
 
 # Instructions for Execution
@@ -39,8 +39,9 @@ When using this repository, please cite:
 
 ```{r} 
 @article{godahewa2023stable,
-  title = {On Forecast Stability},
-  author = {Godahewa, Rakshitha and Bergmeir, Christoph and Song, Zhangdi},
+  title = "On Forecast Stability",
+  author = "Godahewa, Rakshitha and Bergmeir, Christoph and Song, Zhangdi",
+  howpublished = "\url{https://arxiv.org/abs/2310.17332}",
   year = {2023}
 }
 ```
