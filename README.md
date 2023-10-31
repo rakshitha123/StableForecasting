@@ -38,7 +38,7 @@ The experimental datasets are available in the [datasets](https://github.com/rak
 When using this repository, please cite:
 
 ```{r} 
-@article{godahewa2023stable,
+@misc{godahewa2023stable,
   title = "On Forecast Stability",
   author = "Godahewa, Rakshitha and Bergmeir, Christoph and Song, Zhangdi",
   howpublished = "\url{https://arxiv.org/abs/2310.17332}",
