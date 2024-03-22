@@ -1,13 +1,20 @@
 # Global model helper functions
 
 
+
 # A function to create training and test sets
-create_train_test_sets <- function(input_file_name, forecast_horizon, num_cut_last_points){
+create_train_test_sets <- function(input_file_name, forecast_horizon, num_cut_last_points, apply_stl = FALSE, seasonality = NULL){
   dataset <- readLines(file.path(BASE_DIR, "datasets", input_file_name))
   dataset <- strsplit(dataset, ",")
   
   training_set <- list()
   test_set <- matrix(0, nrow = length(dataset), ncol = forecast_horizon)
+  
+  if(apply_stl){
+    remainder_list <- list()
+    trend_forecasts <- matrix(0, nrow = length(dataset), ncol = forecast_horizon)
+    seasonal_forecasts <- matrix(0, nrow = length(dataset), ncol = forecast_horizon)
+  }
   
   for(i in 1:length(dataset)){
     time_series <- as.numeric(dataset[[i]])
@@ -17,9 +24,41 @@ create_train_test_sets <- function(input_file_name, forecast_horizon, num_cut_la
     
     training_set[[i]] <- train_series
     test_set[i,] <- test_series
-  } 
+    
+    if(apply_stl){
+      sstl = stl(ts(train_series, frequency = seasonality), "periodic")
+      seasonal_comp = as.numeric(sstl$time.series[, 1])
+      trend_comp = as.numeric(sstl$time.series[, 2])
+      
+      remainder_list[[i]] <- as.numeric(sstl$time.series[, 3])
+      trend_forecasts[i,] <- as.numeric(forecast(forecast:::ets(trend_comp, model = "ZZN"), h = forecast_horizon)$mean)
+      seasonal_forecasts[i,] <- as.numeric(stlf(ts(seasonal_comp , frequency = seasonality), "period", h = forecast_horizon)$mean)
+    }
+  }
   
-  list(training_set, data.frame(test_set))
+  if(apply_stl)
+    list(training_set, data.frame(test_set), remainder_list, data.frame(trend_forecasts), data.frame(seasonal_forecasts))
+  else
+    list(training_set, data.frame(test_set))
+}
+
+
+# A function to create training set
+create_training_set <- function(input_file_name, forecast_horizon, num_cut_last_points){
+  dataset <- readLines(file.path(BASE_DIR, "datasets", input_file_name))
+  dataset <- strsplit(dataset, ",")
+  
+  training_set <- list()
+
+  for(i in 1:length(dataset)){
+    time_series <- as.numeric(dataset[[i]])
+    time_series <- time_series[1:(length(time_series) - num_cut_last_points)]
+    train_series <- time_series[1:(length(time_series) - forecast_horizon)]
+    
+    training_set[[i]] <- train_series
+  }
+  
+  training_set
 }
 
 
@@ -76,5 +115,22 @@ create_formula <- function(data){
   }
   
   as.formula(paste(formula, "+ 0", sep=""))
+}
+
+
+# A function to get training set for each origin
+get_training_set <- function(input_file_name, forecast_horizon, num_origins){
+  
+  all_training <- list()
+  
+  for(origin in 1:num_origins){
+    print(paste0("Creating training set origin = ", origin))
+    
+    # Creating training set for each origin
+    num_cut_last_points <- num_origins - origin
+    all_training[[origin]] <- create_training_set(input_file_name, forecast_horizon, num_cut_last_points)
+  }
+  
+  all_training
 }
 

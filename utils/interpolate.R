@@ -2,10 +2,12 @@ library(data.table)
 
 
 # A function to perform partial interpolation for vertical stability
-vertical_partial_interpolate <- function(path, file_name, w_s){
+vertical_partial_interpolate <- function(path, file_name, w_s, input_file_name, forecast_horizon, num_origins, seasonality){
   output <- fread(file.path(BASE_DIR, path))
   forecasts <- output[output$type == "forecast",]
   series_nums <- unique(forecasts$item_id)  
+  
+  all_training <- get_training_set(input_file_name, forecast_horizon, num_origins)
   
   # Applying linear interpolation to stabilise forecasts
   for(i in 1:length(w_s))
@@ -32,24 +34,35 @@ vertical_partial_interpolate <- function(path, file_name, w_s){
   
   test_set <- output[output$type == "actual", 3:(ncol(output)-1)]
   
+  acc_training <- list()
+  num_series <- length(all_training[[1]])
+  
+  for(s in 1:num_series){
+    for(or in 1:length(all_training)){
+      acc_training[[length(acc_training)+1]] <- all_training[[or]][[s]]
+    }
+  }
+  
   # Error calculations 
   for(i in 1:length(w_s)){
     print(paste0("w_s = ", w_s[i]))
-    calculate_errors(as.matrix(eval(parse(text=paste0("forecasts_ws_", w_s[i])))), as.matrix(test_set), paste0(file_name, "_interpolate_ws_", w_s[i]))
+    calculate_errors(as.matrix(eval(parse(text=paste0("forecasts_ws_", w_s[i])))), as.matrix(test_set), acc_training, seasonality, paste0(file_name, "_interpolate_ws_", w_s[i]))
     assign(paste0("forecasts_ws_", w_s[i]), cbind(forecasts[,1:2], eval(parse(text=paste0("forecasts_ws_", w_s[i])))))
     dir.create(file.path(BASE_DIR, "results", "forecasts", fsep = "/"), showWarnings = FALSE, recursive = TRUE)
     write.table(eval(parse(text=paste0("forecasts_ws_", w_s[i]))), file.path(BASE_DIR, "results", "forecasts", paste0(file_name, "_interpolate_ws_", w_s[i], "_forecasts.txt")), row.names = FALSE, col.names = FALSE, quote = FALSE)
-    calculate_vertical_stability(eval(parse(text=paste0("forecasts_ws_", w_s[i]))), paste0(file_name, "_interpolate_ws_", w_s[i]))
-    calculate_vertical_stability(eval(parse(text=paste0("forecasts_ws_", w_s[i]))), paste0(file_name, "_interpolate_ws_", w_s[i]), TRUE, TRUE)
+    calculate_vertical_stability(eval(parse(text=paste0("forecasts_ws_", w_s[i]))), all_training, seasonality, paste0(file_name, "_interpolate_ws_", w_s[i]))
+    calculate_vertical_stability(eval(parse(text=paste0("forecasts_ws_", w_s[i]))), all_training, seasonality, paste0(file_name, "_interpolate_ws_", w_s[i]), TRUE, TRUE)
   }
 }
 
 
 # A function to perform partial interpolation for horizontal stability
-horizontal_partial_interpolate <- function(path, file_name, w_s){
+horizontal_partial_interpolate <- function(path, file_name, w_s, input_file_name, forecast_horizon, num_origins, seasonality){
   output <- fread(file.path(BASE_DIR, path))
-  forecasts <- output[output$type == "forecast",]
+  forecasts <- output[output$type == "remainder",]
   series_nums <- unique(forecasts$item_id)  
+  
+  all_training <- get_training_set(input_file_name, forecast_horizon, num_origins)
   
   # Applying linear interpolation to stabilise forecasts
   for(i in 1:length(w_s))
@@ -62,12 +75,19 @@ horizontal_partial_interpolate <- function(path, file_name, w_s){
     current_series_forecasts <- as.data.frame(forecasts[forecasts$item_id == series_nums[s],])
     current_series_forecasts <- current_series_forecasts[,3:(ncol(forecasts)-1)]
     
+    current_series_trend_forecasts <- as.data.frame(output[(output$type == "trend") & (output$item_id == series_nums[s])])
+    current_series_trend_forecasts <- current_series_trend_forecasts[,3:(ncol(current_series_trend_forecasts)-1)]
+    
+    current_series_seasonal_forecasts <- as.data.frame(output[(output$type == "seasonal") & (output$item_id == series_nums[s])])
+    current_series_seasonal_forecasts <- current_series_seasonal_forecasts[,3:(ncol(current_series_seasonal_forecasts)-1)]
+    
     old_forecasts <- current_series_forecasts[,1:(ncol(current_series_forecasts)-1)]
     new_forecasts <- current_series_forecasts[, 2:ncol(current_series_forecasts)]
     
     for(i in 1:length(w_s)){
       interpolated_forecasts <- w_s[i]*old_forecasts + (1 - w_s[i])*new_forecasts
       interpolated_forecasts <- cbind(current_series_forecasts[,1], interpolated_forecasts)
+      interpolated_forecasts <- interpolated_forecasts + current_series_trend_forecasts + current_series_seasonal_forecasts
       colnames(interpolated_forecasts) <- colnames(current_series_forecasts)
       assign(paste0("forecasts_ws_", w_s[i]), rbind(eval(parse(text=paste0("forecasts_ws_", w_s[i]))), interpolated_forecasts))
     }
@@ -75,24 +95,35 @@ horizontal_partial_interpolate <- function(path, file_name, w_s){
   
   test_set <- output[output$type == "actual", 3:(ncol(output)-1)]
   
+  acc_training <- list()
+  num_series <- length(all_training[[1]])
+  
+  for(s in 1:num_series){
+    for(or in 1:length(all_training)){
+      acc_training[[length(acc_training)+1]] <- all_training[[or]][[s]]
+    }
+  }
+  
   # Error calculations 
   for(i in 1:length(w_s)){
     print(paste0("w_s = ", w_s[i]))
-    calculate_errors(as.matrix(eval(parse(text=paste0("forecasts_ws_", w_s[i])))), as.matrix(test_set), paste0(file_name, "_horizontal_interpolate_ws_", w_s[i]))
+    calculate_errors(as.matrix(eval(parse(text=paste0("forecasts_ws_", w_s[i])))), as.matrix(test_set), acc_training, seasonality, paste0(file_name, "_horizontal_interpolate_ws_", w_s[i]))
     assign(paste0("forecasts_ws_", w_s[i]), cbind(forecasts[,1:2], eval(parse(text=paste0("forecasts_ws_", w_s[i])))))
     dir.create(file.path(BASE_DIR, "results", "forecasts", fsep = "/"), showWarnings = FALSE, recursive = TRUE)
     write.table(eval(parse(text=paste0("forecasts_ws_", w_s[i]))), file.path(BASE_DIR, "results", "forecasts", paste0(file_name, "_horizontal_interpolate_ws_", w_s[i], "_forecasts.txt")), row.names = FALSE, col.names = FALSE, quote = FALSE)
-    calculate_horizontal_stability(eval(parse(text=paste0("forecasts_ws_", w_s[i]))), paste0(file_name, "_horizontal_interpolate_ws_", w_s[i]))
-    calculate_horizontal_stability(eval(parse(text=paste0("forecasts_ws_", w_s[i]))), paste0(file_name, "_horizontal_interpolate_ws_", w_s[i]), TRUE, TRUE)
+    calculate_horizontal_stability(eval(parse(text=paste0("forecasts_ws_", w_s[i]))), all_training, seasonality, paste0(file_name, "_horizontal_interpolate_ws_", w_s[i]))
+    calculate_horizontal_stability(eval(parse(text=paste0("forecasts_ws_", w_s[i]))), all_training, seasonality, paste0(file_name, "_horizontal_interpolate_ws_", w_s[i]), TRUE, TRUE)
   }
 }
 
 
 # A function to perform full interpolation (uses previously interpolated forecasts) for vertical stability
-vertical_full_interpolate <- function(path, file_name, w_s){
+vertical_full_interpolate <- function(path, file_name, w_s, input_file_name, forecast_horizon, num_origins, seasonality){
   output <- fread(file.path(BASE_DIR, path))
   forecasts <- output[output$type == "forecast",]
   series_nums <- unique(forecasts$item_id)  
+  
+  all_training <- get_training_set(input_file_name, forecast_horizon, num_origins)
   
   # Applying linear interpolation to stabilise forecasts
   for(i in 1:length(w_s))
@@ -123,24 +154,35 @@ vertical_full_interpolate <- function(path, file_name, w_s){
   
   test_set <- output[output$type == "actual", 3:(ncol(output)-1)]
   
+  acc_training <- list()
+  num_series <- length(all_training[[1]])
+  
+  for(s in 1:num_series){
+    for(or in 1:length(all_training)){
+      acc_training[[length(acc_training)+1]] <- all_training[[or]][[s]]
+    }
+  }
+  
   # Error calculations 
   for(i in 1:length(w_s)){
     print(paste0("w_s = ", w_s[i]))
-    calculate_errors(as.matrix(eval(parse(text=paste0("forecasts_ws_", w_s[i])))), as.matrix(test_set), paste0(file_name, "_full_interpolate_ws_", w_s[i]))
+    calculate_errors(as.matrix(eval(parse(text=paste0("forecasts_ws_", w_s[i])))), as.matrix(test_set), acc_training, seasonality, paste0(file_name, "_full_interpolate_ws_", w_s[i]))
     assign(paste0("forecasts_ws_", w_s[i]), cbind(forecasts[,1:2], eval(parse(text=paste0("forecasts_ws_", w_s[i])))))
     dir.create(file.path(BASE_DIR, "results", "forecasts", fsep = "/"), showWarnings = FALSE, recursive = TRUE)
     write.table(eval(parse(text=paste0("forecasts_ws_", w_s[i]))), file.path(BASE_DIR, "results", "forecasts", paste0(file_name, "_full_interpolate_ws_", w_s[i], "_forecasts.txt")), row.names = FALSE, col.names = FALSE, quote = FALSE)
-    calculate_vertical_stability(eval(parse(text=paste0("forecasts_ws_", w_s[i]))), paste0(file_name, "_full_interpolate_ws_", w_s[i]))
-    calculate_vertical_stability(eval(parse(text=paste0("forecasts_ws_", w_s[i]))), paste0(file_name, "_full_interpolate_ws_", w_s[i]), TRUE, TRUE)
+    calculate_vertical_stability(eval(parse(text=paste0("forecasts_ws_", w_s[i]))), all_training, seasonality, paste0(file_name, "_full_interpolate_ws_", w_s[i]))
+    calculate_vertical_stability(eval(parse(text=paste0("forecasts_ws_", w_s[i]))), all_training, seasonality, paste0(file_name, "_full_interpolate_ws_", w_s[i]), TRUE, TRUE)
   }
 }
 
 
 # A function to perform full interpolation (uses previously interpolated forecasts) for horizontal stability
-horizontal_full_interpolate <- function(path, file_name, w_s){
+horizontal_full_interpolate <- function(path, file_name, w_s, input_file_name, forecast_horizon, num_origins, seasonality){
   output <- fread(file.path(BASE_DIR, path))
-  forecasts <- output[output$type == "forecast",]
+  forecasts <- output[output$type == "remainder",]
   series_nums <- unique(forecasts$item_id)  
+  
+  all_training <- get_training_set(input_file_name, forecast_horizon, num_origins)
   
   # Applying linear interpolation to stabilise forecasts
   for(i in 1:length(w_s))
@@ -153,6 +195,12 @@ horizontal_full_interpolate <- function(path, file_name, w_s){
     current_series_forecasts <- as.data.frame(forecasts[forecasts$item_id == series_nums[s],])
     current_series_forecasts <- current_series_forecasts[,3:(ncol(forecasts)-1)]
     
+    current_series_trend_forecasts <- as.data.frame(output[(output$type == "trend") & (output$item_id == series_nums[s])])
+    current_series_trend_forecasts <- current_series_trend_forecasts[,3:(ncol(current_series_trend_forecasts)-1)]
+    
+    current_series_seasonal_forecasts <- as.data.frame(output[(output$type == "seasonal") & (output$item_id == series_nums[s])])
+    current_series_seasonal_forecasts <- current_series_seasonal_forecasts[,3:(ncol(current_series_seasonal_forecasts)-1)]
+    
     for(i in 1:length(w_s)){
       interpolated_forecasts <- as.data.frame(current_series_forecasts[,1])
       
@@ -163,6 +211,8 @@ horizontal_full_interpolate <- function(path, file_name, w_s){
         interpolated_forecasts <- cbind(interpolated_forecasts, int_forecasts)
       }
       
+      interpolated_forecasts <- interpolated_forecasts + current_series_trend_forecasts + current_series_seasonal_forecasts
+      
       colnames(interpolated_forecasts) <- colnames(current_series_forecasts)
       assign(paste0("forecasts_ws_", w_s[i]), rbind(eval(parse(text=paste0("forecasts_ws_", w_s[i]))), interpolated_forecasts))
     }
@@ -170,14 +220,23 @@ horizontal_full_interpolate <- function(path, file_name, w_s){
   
   test_set <- output[output$type == "actual", 3:(ncol(output)-1)]
   
+  acc_training <- list()
+  num_series <- length(all_training[[1]])
+  
+  for(s in 1:num_series){
+    for(or in 1:length(all_training)){
+      acc_training[[length(acc_training)+1]] <- all_training[[or]][[s]]
+    }
+  }
+  
   # Error calculations 
   for(i in 1:length(w_s)){
     print(paste0("w_s = ", w_s[i]))
-    calculate_errors(as.matrix(eval(parse(text=paste0("forecasts_ws_", w_s[i])))), as.matrix(test_set), paste0(file_name, "_horizontal_full_interpolate_ws_", w_s[i]))
+    calculate_errors(as.matrix(eval(parse(text=paste0("forecasts_ws_", w_s[i])))), as.matrix(test_set), acc_training, seasonality, paste0(file_name, "_horizontal_full_interpolate_ws_", w_s[i]))
     assign(paste0("forecasts_ws_", w_s[i]), cbind(forecasts[,1:2], eval(parse(text=paste0("forecasts_ws_", w_s[i])))))
     dir.create(file.path(BASE_DIR, "results", "forecasts", fsep = "/"), showWarnings = FALSE, recursive = TRUE)
     write.table(eval(parse(text=paste0("forecasts_ws_", w_s[i]))), file.path(BASE_DIR, "results", "forecasts", paste0(file_name, "_horizontal_full_interpolate_ws_", w_s[i], "_forecasts.txt")), row.names = FALSE, col.names = FALSE, quote = FALSE)
-    calculate_horizontal_stability(eval(parse(text=paste0("forecasts_ws_", w_s[i]))), paste0(file_name, "_horizontal_full_interpolate_ws_", w_s[i]))
-    calculate_horizontal_stability(eval(parse(text=paste0("forecasts_ws_", w_s[i]))), paste0(file_name, "_horizontal_full_interpolate_ws_", w_s[i]), TRUE, TRUE)
+    calculate_horizontal_stability(eval(parse(text=paste0("forecasts_ws_", w_s[i]))), all_training, seasonality, paste0(file_name, "_horizontal_full_interpolate_ws_", w_s[i]))
+    calculate_horizontal_stability(eval(parse(text=paste0("forecasts_ws_", w_s[i]))), all_training, seasonality, paste0(file_name, "_horizontal_full_interpolate_ws_", w_s[i]), TRUE, TRUE)
   }
 }
