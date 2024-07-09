@@ -29,6 +29,8 @@ The interpolation experiments of PR, LightGBM, ETS and ARIMA models are written 
 The interpolation experiments of N-BEATS model are written in ./experiments/nbeats_experiments.R.
 The forecasts, accuracy metrics and stability metrics of the framework will be stored in "./results/forecasts", "./results/errors" and "./results/errors/stability" folders, respectively. 
 
+Note: run the script, "./utils/cal_horizontal_errors.R" to obtain the stability measures of horizontal stability experiments that are reported in the revised paper.
+
 
 # Experimental Datasets
 The experimental datasets are available in the datasets folder.
