@@ -24,12 +24,12 @@ get_ets_forecasts <- function(time_series, forecast_horizon){
 get_arima_forecasts <- function(time_series, forecast_horizon){
   
   tryCatch({
-    fit <- forecast:::auto.arima(time_series, lambda = 0)
+    fit <- forecast:::auto.arima(time_series)
   }, error = function(e) {
       tryCatch({
-        fit <<- forecast:::auto.arima(time_series)
+        fit <<- forecast:::auto.arima(time_series, seasonal = FALSE)
       }, error = function(e){
-          fit <<- forecast:::auto.arima(time_series, seasonal = FALSE)
+          fit <<- forecast:::auto.arima(time_series, lambda = 0)
       })
   })
     
