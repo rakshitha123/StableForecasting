@@ -18,6 +18,10 @@ by any base model either vertically or horizontally up to any extent by simply c
 }
 ```
 
+# Online Appendix of the Paper
+
+The online appendix of the paper is available in the file `Stable_Paper_Appendix.pdf`
+
 # Instructions for Execution
 
 ## Executing the Base Models
